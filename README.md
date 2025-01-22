@@ -1,100 +1,195 @@
-# Veri Hazırlama ve Temizleme Pipeline'ı
+# Gelişmiş Veri Hazırlama ve Kümeleme Pipeline'ı
 
-Bu proje, veri hazırlama ve temizleme işlemlerini otomatikleştiren kapsamlı bir pipeline sunar. Temel işlevler arasında eksik değer analizi, aykırı değer tespiti, veri dönüşümleri ve görselleştirme bulunur.
+Bu proje, veri hazırlama, kümeleme optimizasyonu ve gerçek zamanlı kümeleme analizi için kapsamlı bir çözüm sunar. Sistem, hem statik veri kümeleri hem de streaming veri akışları için optimize edilmiş algoritmalar içerir.
 
-## Özellikler
+## 🔬 Bilimsel Altyapı
 
-- Eksik değer analizi ve doldurma
-- Yinelenen satırların tespiti ve kaldırılması
-- Aykırı değer tespiti ve işleme (IQR ve Z-score yöntemleri)
-- Normal dağılıma dönüştürme (Yeo-Johnson transformasyonu)
-- Özellik ölçeklendirme (StandardScaler)
-- Kategorik değişken kodlama (Label Encoding ve One-Hot Encoding)
-- Dağılım görselleştirme (Histogram ve Box plot)
-- Dönüştürücüleri kaydetme ve yükleme
+### 1. Veri Hazırlama ve Ön İşleme
 
-## Kurulum
+#### 1.1 Eksik Veri Analizi
+- **Matematiksel Temel**: Eksik veri oranı (ρ) hesaplaması:
+  ```
+  ρ = (n_missing / n_total) × 100
+  ```
+- **Doldurma Stratejileri**:
+  - Sayısal değişkenler için: μ (ortalama), η (medyan)
+  - Kategorik değişkenler için: mod (en sık değer)
 
-1. Gerekli paketleri yükleyin:
+#### 1.2 Aykırı Değer Tespiti
+- **IQR (Interquartile Range) Yöntemi**:
+  ```
+  IQR = Q3 - Q1
+  alt_sınır = Q1 - k × IQR
+  üst_sınır = Q3 + k × IQR
+  ```
+  Burada k genellikle 1.5 olarak alınır.
+
+- **Z-Score Yöntemi**:
+  ```
+  z = (x - μ) / σ
+  ```
+  |z| > threshold olan değerler aykırı kabul edilir.
+
+#### 1.3 Dağılım Normalizasyonu
+- **Yeo-Johnson Transformasyonu**:
+  ```
+  f(x;λ) = {
+    ((x + 1)^λ - 1) / λ,     x ≥ 0, λ ≠ 0
+    ln(x + 1),               x ≥ 0, λ = 0
+    -((-x + 1)^(2-λ) - 1) / (2-λ), x < 0, λ ≠ 2
+    -ln(-x + 1),            x < 0, λ = 2
+  }
+  ```
+
+### 2. Kümeleme Algoritmaları ve Optimizasyon
+
+#### 2.1 K-Means Kümeleme
+- **Matematiksel Formülasyon**:
+  ```
+  minimize Σ Σ ||x_i - μ_k||²
+  ```
+  Burada x_i veri noktaları, μ_k küme merkezleridir.
+
+- **Optimizasyon Metrikleri**:
+  - Silhouette Skoru (S):
+    ```
+    s(i) = (b(i) - a(i)) / max{a(i), b(i)}
+    ```
+    Burada a(i) iç-küme mesafesi, b(i) en yakın komşu kümeye olan mesafedir.
+  
+  - Calinski-Harabasz Indeksi:
+    ```
+    CH = [tr(B_k)/(k-1)] / [tr(W_k)/(n-k)]
+    ```
+    B_k: kümeler arası kovaryans matrisi
+    W_k: küme içi kovaryans matrisi
+
+#### 2.2 DBSCAN (Density-Based Spatial Clustering)
+- **Parametre Optimizasyonu**:
+  - ε (epsilon): Komşuluk yarıçapı
+  - MinPts: Minimum nokta sayısı
+  ```
+  core_point := |N_ε(p)| ≥ MinPts
+  ```
+
+#### 2.3 Hiyerarşik Kümeleme
+- **Bağlantı Kriterleri**:
+  - Ward Minimum Varyans:
+    ```
+    d(u,v) = √[(|v|+|s|)/(|v|+|s|+|t|) × d²(v,s) + 
+              (|v|+|t|)/(|v|+|s|+|t|) × d²(v,t) -
+              |v|/(|v|+|s|+|t|) × d²(s,t)]
+    ```
+
+### 3. Gerçek Zamanlı Kümeleme (Streaming)
+
+#### 3.1 Mini-Batch K-Means
+- **Güncelleme Formülü**:
+  ```
+  c_t = c_{t-1} × (1 - 1/n_t) + x_t × (1/n_t)
+  ```
+  Burada c_t merkez güncellemesi, n_t atama sayısıdır.
+
+#### 3.2 Incremental Learning
+- **Online PCA**:
+  ```
+  Σ_t = (1 - α)Σ_{t-1} + αx_tx_t^T
+  ```
+  α öğrenme oranıdır.
+
+## 🛠 Teknik Özellikler
+
+### API Endpoints
+
+#### 1. Model Yönetimi
+- `POST /load_model`: Model yükleme
+  ```json
+  {
+    "model_path": "string",
+    "method": "static|streaming"
+  }
+  ```
+
+#### 2. Tahmin ve Güncelleme
+- `POST /predict`: Küme tahminleri
+- `POST /partial_fit`: Streaming model güncelleme
+
+### Veri Formatları
+
+#### 1. Giriş Verisi
+```json
+{
+  "data": [
+    {"features": [float, ...]}
+  ]
+}
+```
+
+#### 2. Çıkış Formatı
+```json
+{
+  "labels": [int, ...],
+  "metrics": {
+    "cluster_distribution": [int, ...],
+    "total_samples": int
+  }
+}
+```
+
+## 📊 Performans Metrikleri
+
+### 1. Kümeleme Kalitesi
+- Silhouette Skoru: [-1, 1]
+- Calinski-Harabasz Indeksi: [0, ∞)
+- Davies-Bouldin Indeksi: [0, ∞)
+
+### 2. Hesaplama Karmaşıklığı
+- K-Means: O(kndi)
+  - k: küme sayısı
+  - n: örnek sayısı
+  - d: boyut
+  - i: iterasyon sayısı
+- DBSCAN: O(n log n)
+- Hiyerarşik: O(n²)
+
+## 🚀 Kurulum ve Kullanım
+
+### 1. Gereksinimler
 ```bash
 pip install -r requirements.txt
 ```
 
-## Kullanım
-
-### Temel Kullanım
-
+### 2. Örnek Kullanım
 ```python
 from data_preparation import DataPreparation
+from clustering import ClusteringOptimizer
 
-# Pipeline'ı başlat
+# Veri hazırlama
 prep = DataPreparation()
+df = prep.load_data("data.csv")
+df_processed = prep.handle_missing_values(df, strategy={'numeric': 'mean'})
 
-# Veri yükle
-df = prep.load_data("veriler.csv")
-
-# Eksik değer analizi
-missing_stats = prep.analyze_missing_values(df)
-
-# Eksik değerleri doldur
-strategy = {
-    'sayisal_sutun': 'mean',
-    'kategorik_sutun': 'mode'
-}
-df_cleaned = prep.handle_missing_values(df, strategy)
-
-# Aykırı değerleri tespit et ve işle
-outliers = prep.detect_outliers(df_cleaned, ['sayisal_sutun'])
-df_no_outliers = prep.handle_outliers(df_cleaned, outliers)
-
-# Dağılımları görselleştir
-prep.plot_distributions(df_no_outliers, ['sayisal_sutun'])
+# Kümeleme optimizasyonu
+optimizer = ClusteringOptimizer()
+results = optimizer.find_optimal_kmeans(X, k_range=range(2, 11))
 ```
 
-### Örnek Kullanım
-
-Projenin nasıl kullanılacağını gösteren örnek bir script `example_usage.py` dosyasında bulunmaktadır. Bu örneği çalıştırmak için:
-
+### 3. API Servisi
 ```bash
-python example_usage.py
+uvicorn api_service:app --reload
 ```
 
-## Proje Yapısı
+## 📚 Referanslar
 
-```
-.
-├── data_preparation.py   # Ana pipeline sınıfı
-├── example_usage.py      # Örnek kullanım
-├── requirements.txt      # Gerekli paketler
-└── README.md            # Bu dosya
-```
+1. Ester, M., et al. (1996). "A Density-Based Algorithm for Discovering Clusters"
+2. Lloyd, S. (1982). "Least squares quantization in PCM"
+3. Ward Jr, J. H. (1963). "Hierarchical Grouping to Optimize an Objective Function"
+4. Yeo, I. K., & Johnson, R. A. (2000). "A New Family of Power Transformations to Improve Normality"
 
-## Çıktılar
+## 🤝 Katkıda Bulunma
 
-Pipeline, işlenmiş verileri ve görselleştirmeleri `output/` dizini altında saklar:
-
-```
-output/
-├── plots/              # Dağılım grafikleri
-└── transformers/       # Kaydedilmiş dönüştürücüler
-```
-
-## Özelleştirme
-
-Pipeline'ı özelleştirmek için `DataPreparation` sınıfını başlatırken config parametresi kullanılabilir:
-
-```python
-config = {
-    'outlier_threshold': 2.0,
-    'scaling_method': 'standard'
-}
-prep = DataPreparation(config=config)
-```
-
-## Katkıda Bulunma
-
-1. Bu depoyu fork edin
-2. Yeni bir branch oluşturun (`git checkout -b feature/yeniOzellik`)
-3. Değişikliklerinizi commit edin (`git commit -am 'Yeni özellik eklendi'`)
-4. Branch'inizi push edin (`git push origin feature/yeniOzellik`)
-5. Pull Request oluşturun 
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request 
