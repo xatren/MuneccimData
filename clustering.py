@@ -90,6 +90,7 @@ class ClusteringOptimizer:
         self.best_score = -1
         self.best_params = {}
         self.pca = None
+        self.scaler = StandardScaler()
         
     def _setup_logger(self) -> logging.Logger:
         """Logger ayarlarını yapılandırır."""
@@ -583,4 +584,82 @@ class ClusteringOptimizer:
             
         self.logger.info(f"Boyut azaltma sonrası şekil: {X_reduced.shape}")
         
-        return X_reduced, reducer 
+        return X_reduced, reducer
+    
+    def fit(self, X: np.ndarray) -> 'ClusteringOptimizer':
+        """
+        Veriyi eğitir ve en iyi modeli bulur.
+        
+        Args:
+            X: Eğitim verisi
+            
+        Returns:
+            self: Eğitilmiş model
+        """
+        try:
+            self.logger.info("Model eğitimi başlıyor")
+            
+            # Veriyi ölçeklendir
+            X_scaled = self.scaler.fit_transform(X)
+            
+            # PCA uygula
+            if X.shape[1] > 2:
+                X_reduced, self.pca = self.apply_pca(X_scaled)
+            else:
+                X_reduced = X_scaled
+            
+            # K-Means optimizasyonu
+            k_range = range(2, min(11, len(X) // 2))
+            kmeans_results = self.find_optimal_kmeans(X_reduced, k_range)
+            
+            # DBSCAN optimizasyonu
+            eps_range = np.linspace(0.1, 2.0, 20)
+            min_samples_range = [3, 5, 7, 10]
+            dbscan_results = self.find_optimal_dbscan(X_reduced, eps_range, min_samples_range)
+            
+            # En iyi modeli seç
+            if self.best_model is None:
+                # Varsayılan olarak K-Means kullan
+                self.best_model = KMeans(n_clusters=3, random_state=42)
+                self.best_model.fit(X_reduced)
+                self.best_params = {"algorithm": "kmeans", "n_clusters": 3}
+                labels = self.best_model.labels_
+                self.best_score = silhouette_score(X_reduced, labels) if len(np.unique(labels)) > 1 else 0
+            
+            self.logger.info(f"Model eğitimi tamamlandı. En iyi skor: {self.best_score:.4f}")
+            return self
+            
+        except Exception as e:
+            self.logger.error(f"Model eğitimi hatası: {str(e)}", exc_info=True)
+            raise
+    
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Yeni veri için tahmin yapar.
+        
+        Args:
+            X: Tahmin yapılacak veri
+            
+        Returns:
+            np.ndarray: Küme etiketleri
+        """
+        try:
+            if self.best_model is None:
+                raise ValueError("Model henüz eğitilmemiş!")
+            
+            # Veriyi ölçeklendir
+            X_scaled = self.scaler.transform(X)
+            
+            # Gerekirse PCA uygula
+            if self.pca is not None:
+                X_reduced = self.pca.transform(X_scaled)
+            else:
+                X_reduced = X_scaled
+            
+            # Tahmin yap
+            labels = self.best_model.predict(X_reduced)
+            return labels
+            
+        except Exception as e:
+            self.logger.error(f"Tahmin hatası: {str(e)}", exc_info=True)
+            raise 
