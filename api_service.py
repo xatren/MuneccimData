@@ -6,6 +6,7 @@ from pathlib import Path
 import joblib
 from clustering import ClusteringOptimizer
 from auto_cluster import AutoCluster
+from sklearn.cluster import DBSCAN
 
 app = FastAPI(
     title="Kümeleme API",
@@ -68,10 +69,12 @@ async def predict(data: DataBatch):
         X = np.array([point.features for point in data.data])
         
         if static_model is not None:
-            # Statik model için PCA uygula
-            if static_model.pca is not None:
-                X = static_model.pca.transform(X)
-            labels = static_model.best_model.predict(X)
+            # DBSCAN için özel işlem
+            if isinstance(static_model.best_model, DBSCAN):
+                # DBSCAN için fit_predict kullan
+                labels = static_model.best_model.fit_predict(X)
+            else:
+                labels = static_model.best_model.predict(X)
             
             response = {
                 "labels": labels.tolist(),

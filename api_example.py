@@ -5,6 +5,24 @@ from pathlib import Path
 import time
 import json
 
+def generate_sample_data(n_samples: int = 10, n_features: int = 4, scale: float = 0.5):
+    """Örnek veri oluşturur."""
+    # Çok boyutlu normal dağılımlı veri oluştur
+    centers = [
+        [0] * n_features,
+        [3] * n_features,
+        [-3] * n_features
+    ]
+    
+    X = []
+    samples_per_center = n_samples // len(centers)
+    for center in centers:
+        cluster = np.random.normal(loc=center, scale=scale, 
+                                 size=(samples_per_center, n_features))
+        X.append(cluster)
+    
+    return np.vstack(X)
+
 def test_static_clustering():
     """Test static clustering API endpoints."""
     print("\nTesting Static Clustering API...")
@@ -13,7 +31,7 @@ def test_static_clustering():
     response = requests.post(
         "http://localhost:8000/load_model",
         json={
-            "model_path": "output/models/static_cluster_model",
+            "model_path": "output/models/best_clustering_model.joblib",
             "method": "static"
         }
     )
@@ -23,10 +41,8 @@ def test_static_clustering():
     response = requests.get("http://localhost:8000/model_info")
     print("Model Bilgisi:", response.json())
     
-    # Örnek veri oluştur
-    n_samples = 10
-    n_features = 5
-    X = np.random.randn(n_samples, n_features)
+    # Örnek veri oluştur - PCA boyutunda (2 özellik)
+    X = generate_sample_data(n_samples=30, n_features=2, scale=0.1)
     
     # Tahmin yap
     data = {
@@ -46,7 +62,7 @@ def test_streaming_clustering():
     response = requests.post(
         "http://localhost:8000/load_model",
         json={
-            "model_path": "output/models/streaming_cluster_model",
+            "model_path": "output/streaming/model_state",
             "method": "streaming"
         }
     )
@@ -60,10 +76,8 @@ def test_streaming_clustering():
     for batch in range(3):
         print(f"\nBatch {batch + 1}")
         
-        # Örnek veri oluştur
-        n_samples = 5
-        n_features = 5
-        X = np.random.randn(n_samples, n_features)
+        # Örnek veri oluştur - Streaming model için 4 özellik
+        X = generate_sample_data(n_samples=15, n_features=4, scale=0.5)
         
         # Veriyi gönder ve model güncelle
         data = {
