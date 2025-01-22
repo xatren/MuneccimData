@@ -9,7 +9,7 @@ import logging
 from pathlib import Path
 import joblib
 from tqdm import tqdm
-
+import numpy as np
 class DataPreparation:
     def __init__(self, config: Optional[Dict] = None):
         """

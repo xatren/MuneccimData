@@ -1,12 +1,12 @@
 from data_preparation import DataPreparation
 import pandas as pd
 from pathlib import Path
-
+import numpy as np
 def main():
     # Veri hazırlama sınıfını başlat
     prep = DataPreparation()
     
-    # Dinamik CSV okuma
+    # CSV okuma
     csv_path = "data/example.csv"  # Buraya okuyacağınız CSV'nin yolunu girin
     try:
         df = pd.read_csv(csv_path)
